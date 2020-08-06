@@ -1,8 +1,4 @@
-﻿using Azure.Functions.Cli.Common;
-using Colors.Net;
-using Colors.Net.StringColorExtensions;
-using Microsoft.Azure.WebJobs.Script;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -10,6 +6,14 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Azure.Functions.Cli.Common;
+using Colors.Net;
+using Colors.Net.StringColorExtensions;
+using Microsoft.Azure.WebJobs.Logging;
+using Microsoft.Azure.WebJobs.Script;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Azure.Functions.Cli
 {
@@ -99,7 +103,7 @@ namespace Azure.Functions.Cli
                 Match match = Regex.Match(sanitizedString, removeRegex);
                 string matchString;
                 // Keep removing the matching regex until no more match is found
-                while(!string.IsNullOrEmpty(matchString = match.Value))
+                while (!string.IsNullOrEmpty(matchString = match.Value))
                 {
                     sanitizedString = sanitizedString.Replace(matchString, new string(fillerChar, matchString.Length));
                     match = Regex.Match(sanitizedString, removeRegex);
@@ -170,6 +174,64 @@ namespace Azure.Functions.Cli
             var localPath = Path.Combine(appDataDir, "azure-functions-core-tools");
             FileSystemHelpers.EnsureDirectory(localPath);
             return localPath;
+        }
+
+        internal static LogLevel GetHostJsonDefaultLogLevel(string hostJsonFileContent)
+        {
+            var hostJson = JsonConvert.DeserializeObject<JObject>(hostJsonFileContent.ToLower());
+            try
+            {
+                if (Enum.TryParse(typeof(LogLevel), hostJson["logging"]["loglevel"]["default"].ToString(), true, out object outLevel))
+                {
+                    return (LogLevel)outLevel;
+                }
+            }
+            catch
+            {
+            }
+            // Default log level
+            return LogLevel.Information;
+        }
+
+        internal static bool LogLevelExists(string hostJsonFileContent, string category)
+        {
+            if (string.IsNullOrEmpty(hostJsonFileContent))
+            {
+                return false;
+            }
+            string hostJsonContent = hostJsonFileContent.ToLower();
+            if (string.IsNullOrEmpty(category))
+            {
+                return hostJsonContent.Contains("logging") && hostJsonContent.Contains("loglevel");
+            }
+            var hostJson = JsonConvert.DeserializeObject<JObject>(hostJsonFileContent.ToLower());
+            try
+            {
+                if (Enum.TryParse(typeof(LogLevel), hostJson["logging"]["loglevel"][category.ToLower()].ToString(), true, out object outLevel))
+                {
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        internal static bool DeafaultLoggingFilter(string category, LogLevel actualLevel, LogLevel userLogMinLevel, LogLevel systemLogMinLevel)
+        {
+            if (LogCategories.IsFunctionUserCategory(category) || LogCategories.IsFunctionCategory(category))
+            {
+                return actualLevel >= userLogMinLevel;
+            }
+            return actualLevel >= systemLogMinLevel;
+        }
+
+        internal static bool UserLoggingFilter(LogLevel actualLevel)
+        {
+            if (actualLevel == LogLevel.None)
+            {
+                return false;
+            }
+            return actualLevel >= LogLevel.Trace;
         }
     }
 }

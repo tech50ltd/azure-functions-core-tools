@@ -5,6 +5,8 @@ using Microsoft.Azure.WebJobs.Script;
 using Microsoft.Extensions.Logging;
 using Azure.Functions.Cli.Common;
 using static Azure.Functions.Cli.Common.OutputTheme;
+using System.Linq;
+using System.Diagnostics.Tracing;
 
 namespace Azure.Functions.Cli.Diagnostics
 {
@@ -13,31 +15,18 @@ namespace Azure.Functions.Cli.Diagnostics
         private readonly Func<string, LogLevel, bool> _filter;
         private readonly bool _verboseErrors;
         private readonly string _category;
+        private readonly LoggingFilterOptions _loggingFilterOptions;
+        private readonly string[] whitelistedLogsPrefixes = new string[] { "Worker process started and initialized.", "Host lock lease acquired by instance ID" };
 
-        public ColoredConsoleLogger(string category, Func<string, LogLevel, bool> filter = null)
+        public ColoredConsoleLogger(string category, LoggingFilterOptions loggingFilterOptions)
         {
             _category = category;
-            _filter = filter;
+            _loggingFilterOptions = loggingFilterOptions;
             _verboseErrors = StaticSettings.IsDebug;
-        }
-
-        public bool IsEnabled(LogLevel logLevel)
-        {
-            if (_filter == null)
-            {
-                return true;
-            }
-
-            return _filter(_category, logLevel);
         }
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
-            if (!IsEnabled(logLevel))
-            {
-                return;
-            }
-
             string formattedMessage = formatter(state, exception);
 
             if (string.IsNullOrEmpty(formattedMessage))
@@ -45,10 +34,41 @@ namespace Azure.Functions.Cli.Diagnostics
                 return;
             }
 
+            if (DoesMessageStartsWithWhiteListedPrefix(formattedMessage))
+            {
+                LogToConsole(logLevel, exception, formattedMessage);
+                return;
+            }
+
+            if (!IsEnabled(logLevel))
+            {
+                return;
+            }
+
+            LogToConsole(logLevel, exception, formattedMessage);
+        }
+
+        private void LogToConsole(LogLevel logLevel, Exception exception, string formattedMessage)
+        {
             foreach (var line in GetMessageString(logLevel, formattedMessage, exception))
             {
-                ColoredConsole.WriteLine($"[{DateTime.UtcNow}] {line}");
+                var outputline = line.ToString();
+                if (_loggingFilterOptions.VerboseLogging)
+                {
+                    outputline = $"[{DateTime.UtcNow}] {line}";
+                }
+                ColoredConsole.WriteLine($"{outputline}");
             }
+        }
+
+        internal bool DoesMessageStartsWithWhiteListedPrefix(string formattedMessage)
+        {
+            if (formattedMessage == null)
+            {
+                throw new ArgumentNullException(nameof(formattedMessage));
+            }
+            var formattedMessagesWithWhiteListePrefixes = whitelistedLogsPrefixes.Where(s => formattedMessage.StartsWith(s, StringComparison.OrdinalIgnoreCase));
+            return formattedMessagesWithWhiteListePrefixes.Any();
         }
 
         private IEnumerable<RichString> GetMessageString(LogLevel level, string formattedMessage, Exception exception)
@@ -85,6 +105,11 @@ namespace Azure.Functions.Cli.Diagnostics
         public IDisposable BeginScope<TState>(TState state)
         {
             return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return _loggingFilterOptions.IsEnabled(_category, logLevel);
         }
     }
 }

@@ -10,9 +10,16 @@ namespace Azure.Functions.Cli.Diagnostics
 {
     internal class LoggingBuilder : IConfigureBuilder<ILoggingBuilder>
     {
+        private LoggingFilterOptions _loggingFilterOptions;
+
+        public LoggingBuilder(LoggingFilterOptions loggingFilterOptions)
+        {
+            _loggingFilterOptions = loggingFilterOptions;
+        }
+
         public void Configure(ILoggingBuilder builder)
         {
-            builder.AddProvider(new ColoredConsoleLoggerProvider());
+            _loggingFilterOptions.AddConsoleLoggingProvider(builder);
 
             builder.Services.AddSingleton<TelemetryClient>(provider =>
             {
