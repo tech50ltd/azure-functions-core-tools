@@ -25,6 +25,11 @@ namespace Azure.Functions.Cli.Diagnostics
             _verboseErrors = StaticSettings.IsDebug;
         }
 
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return _loggingFilterOptions.IsEnabled(_category, logLevel);
+        }
+
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
             string formattedMessage = formatter(state, exception);
@@ -105,11 +110,6 @@ namespace Azure.Functions.Cli.Diagnostics
         public IDisposable BeginScope<TState>(TState state)
         {
             return null;
-        }
-
-        public bool IsEnabled(LogLevel logLevel)
-        {
-            return _loggingFilterOptions.IsEnabled(_category, logLevel);
         }
     }
 }

@@ -65,6 +65,7 @@ namespace Azure.Functions.Cli.Actions.HostActions
         public StartHostAction(ISecretsManager secretsManager)
         {
             _secretsManager = secretsManager;
+            _loggingFilterOptions = new LoggingFilterOptions(VerboseLogging);
         }
 
         public override ICommandLineParserResult ParseArgs(string[] args)
@@ -149,8 +150,6 @@ namespace Azure.Functions.Cli.Actions.HostActions
             UpdateEnvironmentVariables(settings);
 
             var defaultBuilder = Microsoft.AspNetCore.WebHost.CreateDefaultBuilder(Array.Empty<string>());
-
-            _loggingFilterOptions = new LoggingFilterOptions(VerboseLogging);
 
             if (UseHttps)
             {
