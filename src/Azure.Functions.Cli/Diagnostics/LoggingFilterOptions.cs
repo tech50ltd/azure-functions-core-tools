@@ -2,8 +2,6 @@
 using Azure.Functions.Cli.Diagnostics;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Azure.Functions.Cli
 {
@@ -12,9 +10,20 @@ namespace Azure.Functions.Cli
         private const string DefaultLogLevelKey = "default";
         private readonly string _hostJsonFileContent = string.Empty;
 
+        // CI EnvironmentSettings
+        // https://github.com/watson/ci-info/blob/master/index.js#L52-L59
+        public const string Ci = "CI"; // Travis CI, CircleCI, Cirrus CI, Gitlab CI, Appveyor, CodeShip, dsari
+        public const string Ci_Continuous_Integration = "CONTINUOUS_INTEGRATION";  // Travis CI, Cirrus CI
+        public const string Ci_Build_Number = "BUILD_NUMBER";  // Travis CI, Cirrus CI
+        public const string Ci_Run_Id = "RUN_ID"; // TaskCluster, dsari
+
         public LoggingFilterOptions(bool verboseLogging = false)
         {
             VerboseLogging = verboseLogging;
+            if (IsCiEnvironment())
+            {
+                VerboseLogging = true;
+            }
             if (VerboseLogging)
             {
                 SystemLogDefaultLogLevel = LogLevel.Information;
@@ -78,6 +87,18 @@ namespace Azure.Functions.Cli
                 return false;
             }
             return Utilities.DeafaultLoggingFilter(category, logLevel, UserLogDefaultLogLevel, SystemLogDefaultLogLevel);
+        }
+
+        internal bool IsCiEnvironment()
+        {
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ci)) ||
+                !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ci_Continuous_Integration)) ||
+                !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ci_Build_Number)) ||
+                !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ci_Run_Id)))
+            {
+                return true;
+            }
+            return false;
         }
     }
 }

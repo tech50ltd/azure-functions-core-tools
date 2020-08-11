@@ -60,5 +60,19 @@ namespace Azure.Functions.Cli.Tests
             LoggingFilterOptions loggingFilterOptions = new LoggingFilterOptions(false);
             Assert.Equal(expected, loggingFilterOptions.IsEnabled(category, logLevel));
         }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void IsCI_Tests(bool isCiEnv)
+        {
+            if (isCiEnv)
+            {
+                Environment.SetEnvironmentVariable(LoggingFilterOptions.Ci_Build_Number, "90l99");
+            }
+            LoggingFilterOptions loggingFilterOptions = new LoggingFilterOptions(false);
+            Assert.Equal(isCiEnv, loggingFilterOptions.IsCiEnvironment());
+            Environment.SetEnvironmentVariable(LoggingFilterOptions.Ci_Build_Number, "");
+        }
     }
 }
