@@ -262,7 +262,7 @@ namespace Azure.Functions.Cli.Actions.HostActions
             }
             if (!VerboseLogging)
             {
-                ColoredConsole.WriteLine(Cyan("For detailed output, run func with --verbose flag."));
+                ColoredConsole.WriteLine(AdditionalInfoColor("For detailed output, run func with --verbose flag."));
             }
             await runTask;
         }
@@ -342,8 +342,7 @@ namespace Azure.Functions.Cli.Actions.HostActions
             return isPrecompiled;
         }
 
-                        .WriteLine(DarkYellow("Http Functions:"))
-                        .WriteLine($"\t{HttpFunctionNameColor($"{function.Name}:")} {HttpFunctionUrlColor(functionMethods)} {HttpFunctionUrlColor(url)}")
+                       
         internal static async Task CheckNonOptionalSettings(IEnumerable<KeyValuePair<string, string>> secrets, string scriptPath)
         {
             try

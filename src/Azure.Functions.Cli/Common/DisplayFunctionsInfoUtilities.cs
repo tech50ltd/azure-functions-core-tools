@@ -20,7 +20,7 @@ namespace Azure.Functions.Cli
                 {
                     ColoredConsole
                         .WriteLine()
-                        .WriteLine(Yellow("Functions:"))
+                        .WriteLine(DarkYellow("Functions:"))
                         .WriteLine();
                 }
                 DisplayHttpFunctions(functions, httpOptions, baseUri);
@@ -56,7 +56,7 @@ namespace Azure.Functions.Cli
                 var functionMethods = methods != null ? $"{CleanAndFormatHttpMethods(string.Join(",", methods))}" : null;
                 var url = $"{baseUri.ToString().Replace("0.0.0.0", "localhost")}{hostRoutePrefix}{httpRoute}";
                 ColoredConsole
-                    .WriteLine($"\t{Yellow($"{function.Name}:")} {Green(functionMethods)} {Green(url)}")
+                    .WriteLine($"\t{HttpFunctionNameColor($"{function.Name}:")} {HttpFunctionUrlColor(functionMethods)} {HttpFunctionUrlColor(url)}")
                     .WriteLine();
             }
         }
