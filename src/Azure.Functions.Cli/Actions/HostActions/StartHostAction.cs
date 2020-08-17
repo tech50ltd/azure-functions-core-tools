@@ -36,7 +36,9 @@ namespace Azure.Functions.Cli.Actions.HostActions
         private const int DefaultPort = 7071;
         private const int DefaultTimeout = 20;
         private readonly ISecretsManager _secretsManager;
-        private LoggingFilterOptions _loggingFilterOptions;
+        private LoggingFilterHelper _loggingFilterHelper;
+        private IConfigurationRoot _hostJsonConfig;
+        private bool _verboseLoggingArgExists;
 
         public int Port { get; set; }
 
@@ -65,7 +67,7 @@ namespace Azure.Functions.Cli.Actions.HostActions
         public StartHostAction(ISecretsManager secretsManager)
         {
             _secretsManager = secretsManager;
-            _loggingFilterOptions = new LoggingFilterOptions(VerboseLogging);
+           
         }
 
         public override ICommandLineParserResult ParseArgs(string[] args)
@@ -140,17 +142,23 @@ namespace Azure.Functions.Cli.Actions.HostActions
                 .SetDefault(false)
                 .Callback(v => VerboseLogging = v);
 
-            return base.ParseArgs(args);
+            var parserResult = base.ParseArgs(args);
+            _verboseLoggingArgExists = parserResult.UnMatchedOptions.Where(o => o.LongName.Equals("verbose", StringComparison.OrdinalIgnoreCase)).Any();
+            return parserResult;
         }
 
         private async Task<IWebHost> BuildWebHost(ScriptApplicationHostOptions hostOptions, Uri listenAddress, Uri baseAddress, X509Certificate2 certificate)
         {
             IDictionary<string, string> settings = await GetConfigurationSettings(hostOptions.ScriptPath, baseAddress);
+           
             settings.AddRange(LanguageWorkerHelper.GetWorkerConfiguration(LanguageWorkerSetting));
             UpdateEnvironmentVariables(settings);
 
-            var defaultBuilder = Microsoft.AspNetCore.WebHost.CreateDefaultBuilder(Array.Empty<string>());
+            _hostJsonConfig = Utilities.BuildHostJsonConfigutation(hostOptions);
+            _loggingFilterHelper = new LoggingFilterHelper(_hostJsonConfig, VerboseLogging, _verboseLoggingArgExists);
 
+            var defaultBuilder = Microsoft.AspNetCore.WebHost.CreateDefaultBuilder(Array.Empty<string>());
+            
             if (UseHttps)
             {
                 defaultBuilder
@@ -172,9 +180,9 @@ namespace Azure.Functions.Cli.Actions.HostActions
                 .ConfigureLogging(loggingBuilder =>
                 {
                     loggingBuilder.ClearProviders();
-                    _loggingFilterOptions.AddConsoleLoggingProvider(loggingBuilder);
+                    _loggingFilterHelper.AddConsoleLoggingProvider(loggingBuilder);
                 })
-                .ConfigureServices((context, services) => services.AddSingleton((IStartup)new Startup(context, hostOptions, CorsOrigins, CorsCredentials, EnableAuth, _loggingFilterOptions)))
+                .ConfigureServices((context, services) => services.AddSingleton<IStartup>(new Startup(context, hostOptions, CorsOrigins, CorsCredentials, EnableAuth, _loggingFilterHelper)))
                 .Build();
         }
 

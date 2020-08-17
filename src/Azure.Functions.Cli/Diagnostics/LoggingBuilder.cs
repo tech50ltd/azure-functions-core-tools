@@ -10,9 +10,9 @@ namespace Azure.Functions.Cli.Diagnostics
 {
     internal class LoggingBuilder : IConfigureBuilder<ILoggingBuilder>
     {
-        private LoggingFilterOptions _loggingFilterOptions;
+        private LoggingFilterHelper _loggingFilterOptions;
 
-        public LoggingBuilder(LoggingFilterOptions loggingFilterOptions)
+        public LoggingBuilder(LoggingFilterHelper loggingFilterOptions)
         {
             _loggingFilterOptions = loggingFilterOptions;
         }

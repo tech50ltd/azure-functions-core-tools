@@ -12,13 +12,12 @@ namespace Azure.Functions.Cli.Diagnostics
 {
     public class ColoredConsoleLogger : ILogger
     {
-        private readonly Func<string, LogLevel, bool> _filter;
         private readonly bool _verboseErrors;
         private readonly string _category;
-        private readonly LoggingFilterOptions _loggingFilterOptions;
-        private readonly string[] whitelistedLogsPrefixes = new string[] { "Worker process started and initialized.", "Host lock lease acquired by instance ID" };
+        private readonly LoggingFilterHelper _loggingFilterOptions;
+        private readonly string[] allowedLogsPrefixes = new string[] { "Worker process started and initialized.", "Host lock lease acquired by instance ID" };
 
-        public ColoredConsoleLogger(string category, LoggingFilterOptions loggingFilterOptions)
+        public ColoredConsoleLogger(string category, LoggingFilterHelper loggingFilterOptions)
         {
             _category = category;
             _loggingFilterOptions = loggingFilterOptions;
@@ -39,7 +38,7 @@ namespace Azure.Functions.Cli.Diagnostics
                 return;
             }
 
-            if (DoesMessageStartsWithWhiteListedPrefix(formattedMessage))
+            if (DoesMessageStartsWithAllowedLogsPrefix(formattedMessage))
             {
                 LogToConsole(logLevel, exception, formattedMessage);
                 return;
@@ -57,22 +56,22 @@ namespace Azure.Functions.Cli.Diagnostics
         {
             foreach (var line in GetMessageString(logLevel, formattedMessage, exception))
             {
-                var outputline = line.ToString();
+                var outputline = $"{line}";
                 if (_loggingFilterOptions.VerboseLogging)
                 {
-                    outputline = $"[{DateTime.UtcNow}] {line}";
+                    outputline = $"[{DateTime.UtcNow}] {outputline}";
                 }
                 ColoredConsole.WriteLine($"{outputline}");
             }
         }
 
-        internal bool DoesMessageStartsWithWhiteListedPrefix(string formattedMessage)
+        internal bool DoesMessageStartsWithAllowedLogsPrefix(string formattedMessage)
         {
             if (formattedMessage == null)
             {
                 throw new ArgumentNullException(nameof(formattedMessage));
             }
-            var formattedMessagesWithWhiteListePrefixes = whitelistedLogsPrefixes.Where(s => formattedMessage.StartsWith(s, StringComparison.OrdinalIgnoreCase));
+            var formattedMessagesWithWhiteListePrefixes = allowedLogsPrefixes.Where(s => formattedMessage.StartsWith(s, StringComparison.OrdinalIgnoreCase));
             return formattedMessagesWithWhiteListePrefixes.Any();
         }
 

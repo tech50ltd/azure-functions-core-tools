@@ -1,14 +1,18 @@
 ﻿using Azure.Functions.Cli.Common;
 using Azure.Functions.Cli.Diagnostics;
+using Microsoft.Azure.WebJobs.Script.Eventing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 
 namespace Azure.Functions.Cli
 {
-    public class LoggingFilterOptions
+    public class LoggingFilterHelper
     {
         private const string DefaultLogLevelKey = "default";
-        private readonly string _hostJsonFileContent = string.Empty;
+        private readonly IConfigurationRoot _hostJsonConfig;
+        private readonly IList<IDisposable> _eventSubscriptions = new List<IDisposable>();
 
         // CI EnvironmentSettings
         // https://github.com/watson/ci-info/blob/master/index.js#L52-L59
@@ -17,10 +21,12 @@ namespace Azure.Functions.Cli
         public const string Ci_Build_Number = "BUILD_NUMBER";  // Travis CI, Cirrus CI
         public const string Ci_Run_Id = "RUN_ID"; // TaskCluster, dsari
 
-        public LoggingFilterOptions(bool verboseLogging = false)
+        public LoggingFilterHelper(IConfigurationRoot hostJsonConfig, bool verboseLogging, bool verboseLoggingArgExists)
         {
+            _hostJsonConfig = hostJsonConfig;
             VerboseLogging = verboseLogging;
-            if (IsCiEnvironment())
+            
+            if (IsCiEnvironment(verboseLoggingArgExists))
             {
                 VerboseLogging = true;
             }
@@ -30,11 +36,10 @@ namespace Azure.Functions.Cli
             }
             try
             {
-                _hostJsonFileContent = FileSystemHelpers.ReadAllTextFromFile(Constants.HostJsonFileName);
-                DefaultLogLevelExists = Utilities.LogLevelExists(_hostJsonFileContent, DefaultLogLevelKey);
+                DefaultLogLevelExists = Utilities.LogLevelExists(_hostJsonConfig, DefaultLogLevelKey);
                 if (DefaultLogLevelExists)
                 {
-                    DefaultLogLevel = Utilities.GetHostJsonDefaultLogLevel(_hostJsonFileContent);
+                    DefaultLogLevel = Utilities.GetHostJsonDefaultLogLevel(_hostJsonConfig);
                     SystemLogDefaultLogLevel = DefaultLogLevel;
                     UserLogDefaultLogLevel = DefaultLogLevel;
                 }
@@ -72,12 +77,12 @@ namespace Azure.Functions.Cli
         internal void AddConsoleLoggingProvider(ILoggingBuilder loggingBuilder)
         {
             // Filter is needed to force all the logs.
-            loggingBuilder.AddProvider(new ColoredConsoleLoggerProvider(this)).AddFilter((category, level) => true);
+            loggingBuilder.AddFilter<ColoredConsoleLoggerProvider>((category, level) => true).AddProvider(new ColoredConsoleLoggerProvider(this));
         }
 
         internal bool IsEnabled(string category, LogLevel logLevel)
         {
-            if (Utilities.LogLevelExists(_hostJsonFileContent, category))
+            if (Utilities.LogLevelExists(_hostJsonConfig, category))
             {
                 // If category exists in `loglevel` section, ensure defaults do not apply.
                 return Utilities.UserLoggingFilter(logLevel);
@@ -86,11 +91,15 @@ namespace Azure.Functions.Cli
             {
                 return false;
             }
-            return Utilities.DeafaultLoggingFilter(category, logLevel, UserLogDefaultLogLevel, SystemLogDefaultLogLevel);
+            return Utilities.DefaultLoggingFilter(category, logLevel, UserLogDefaultLogLevel, SystemLogDefaultLogLevel);
         }
 
-        internal bool IsCiEnvironment()
+        internal bool IsCiEnvironment(bool verboseLoggingArgExists)
         {
+            if (verboseLoggingArgExists)
+            {
+                return VerboseLogging;
+            }
             if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ci)) ||
                 !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ci_Continuous_Integration)) ||
                 !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ci_Build_Number)) ||

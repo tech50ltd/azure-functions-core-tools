@@ -11,7 +11,11 @@ using Colors.Net;
 using Colors.Net.StringColorExtensions;
 using Microsoft.Azure.WebJobs.Logging;
 using Microsoft.Azure.WebJobs.Script;
+using Microsoft.Azure.WebJobs.Script.Configuration;
+using Microsoft.Azure.WebJobs.Script.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -176,12 +180,12 @@ namespace Azure.Functions.Cli
             return localPath;
         }
 
-        internal static LogLevel GetHostJsonDefaultLogLevel(string hostJsonFileContent)
+        internal static LogLevel GetHostJsonDefaultLogLevel(IConfigurationRoot hostJsonConfig)
         {
-            var hostJson = JsonConvert.DeserializeObject<JObject>(hostJsonFileContent.ToLower());
+            string defaultLogLevelKey = $"AzureFunctionsJobHost:logging:loglevel:default";
             try
             {
-                if (Enum.TryParse(typeof(LogLevel), hostJson["logging"]["loglevel"]["default"].ToString(), true, out object outLevel))
+                if (Enum.TryParse(typeof(LogLevel), hostJsonConfig[defaultLogLevelKey].ToString(), true, out object outLevel))
                 {
                     return (LogLevel)outLevel;
                 }
@@ -193,21 +197,12 @@ namespace Azure.Functions.Cli
             return LogLevel.Information;
         }
 
-        internal static bool LogLevelExists(string hostJsonFileContent, string category)
+        internal static bool LogLevelExists(IConfigurationRoot hostJsonConfig, string category)
         {
-            if (string.IsNullOrEmpty(hostJsonFileContent))
-            {
-                return false;
-            }
-            string hostJsonContent = hostJsonFileContent.ToLower();
-            if (string.IsNullOrEmpty(category))
-            {
-                return hostJsonContent.Contains("logging") && hostJsonContent.Contains("loglevel");
-            }
-            var hostJson = JsonConvert.DeserializeObject<JObject>(hostJsonFileContent.ToLower());
+            string categoryKey = $"AzureFunctionsJobHost:logging:loglevel:{category}";
             try
             {
-                if (Enum.TryParse(typeof(LogLevel), hostJson["logging"]["loglevel"][category.ToLower()].ToString(), true, out object outLevel))
+                if (Enum.TryParse(typeof(LogLevel), hostJsonConfig[categoryKey].ToString(), true, out object outLevel))
                 {
                     return true;
                 }
@@ -216,7 +211,16 @@ namespace Azure.Functions.Cli
             return false;
         }
 
-        internal static bool DeafaultLoggingFilter(string category, LogLevel actualLevel, LogLevel userLogMinLevel, LogLevel systemLogMinLevel)
+        /// <summary>
+        /// For user logs, returns true if actualLevel of the log is >= default user log level - Information unless overridden in host.json
+        /// For system logs, returns true if actualLevel of the log is >= default system log level - Warning unless overridden in host.json
+        /// </summary>
+        /// <param name="category"></param>
+        /// <param name="actualLevel"></param>
+        /// <param name="userLogMinLevel"></param>
+        /// <param name="systemLogMinLevel"></param>
+        /// <returns></returns>
+        internal static bool DefaultLoggingFilter(string category, LogLevel actualLevel, LogLevel userLogMinLevel, LogLevel systemLogMinLevel)
         {
             if (LogCategories.IsFunctionUserCategory(category))
             {
@@ -225,6 +229,11 @@ namespace Azure.Functions.Cli
             return actualLevel >= systemLogMinLevel;
         }
 
+        /// <summary>
+        /// Returns true for user logs >= Trace level. Returns false, if log level is explicitly set to None.
+        /// </summary>
+        /// <param name="actualLevel"></param>
+        /// <returns></returns>
         internal static bool UserLoggingFilter(LogLevel actualLevel)
         {
             if (actualLevel == LogLevel.None)
@@ -232,6 +241,14 @@ namespace Azure.Functions.Cli
                 return false;
             }
             return actualLevel >= LogLevel.Trace;
+        }
+
+        internal static IConfigurationRoot BuildHostJsonConfigutation(ScriptApplicationHostOptions hostOptions)
+        {
+            IConfigurationBuilder builder = new ConfigurationBuilder();
+            builder.Add(new HostJsonFileConfigurationSource(hostOptions, SystemEnvironment.Instance, loggerFactory: NullLoggerFactory.Instance, metricsLogger: new MetricsLogger()));
+            var configuration = builder.Build();
+            return configuration;
         }
     }
 }

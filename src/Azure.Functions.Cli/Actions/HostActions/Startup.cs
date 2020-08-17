@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Azure.Functions.Cli.Actions.HostActions.WebHost.Security;
 using Azure.Functions.Cli.Diagnostics;
 using Azure.Functions.Cli.ExtensionBundle;
@@ -24,9 +25,9 @@ namespace Azure.Functions.Cli.Actions.HostActions
         private readonly string[] _corsOrigins;
         private readonly bool _corsCredentials;
         private readonly bool _enableAuth;
-        private readonly LoggingFilterOptions _loggingFilterOptions;
+        private readonly LoggingFilterHelper _loggingFilterOptions;
 
-        public Startup(WebHostBuilderContext builderContext, ScriptApplicationHostOptions hostOptions, string corsOrigins, bool corsCredentials, bool enableAuth, LoggingFilterOptions loggingFilterOptions)
+        public Startup(WebHostBuilderContext builderContext, ScriptApplicationHostOptions hostOptions, string corsOrigins, bool corsCredentials, bool enableAuth, LoggingFilterHelper loggingFilterOptions)
         {
             _builderContext = builderContext;
             _hostOptions = hostOptions;

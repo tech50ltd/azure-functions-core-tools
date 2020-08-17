@@ -1,4 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Azure.Functions.Cli.Common;
+using Microsoft.Azure.WebJobs.Script;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.IO;
+using System.Text;
 using Xunit;
 
 namespace Azure.Functions.Cli.Tests
@@ -12,7 +17,13 @@ namespace Azure.Functions.Cli.Tests
         [InlineData("{\"version\": \"2.0\"}", LogLevel.Information)]
         public void GetHostJsonDefaultLogLevel_Test(string hostJsonContent, LogLevel expectedLogLevel)
         {
-            LogLevel actualLogLevel = Utilities.GetHostJsonDefaultLogLevel(hostJsonContent);
+            FileSystemHelpers.WriteAllTextToFile(Constants.HostJsonFileName, hostJsonContent);
+            ScriptApplicationHostOptions hostOptions = new ScriptApplicationHostOptions
+            {
+                ScriptPath = Directory.GetCurrentDirectory()
+            };
+            var configuration = Utilities.BuildHostJsonConfigutation(hostOptions);
+            LogLevel actualLogLevel = Utilities.GetHostJsonDefaultLogLevel(configuration);
             Assert.Equal(actualLogLevel, expectedLogLevel);
         }
 
@@ -22,7 +33,13 @@ namespace Azure.Functions.Cli.Tests
         [InlineData("{\"version\": \"2.0\"}", "Function.HttpFunction", false)]
         public void LogLevelExists_Test(string hostJsonContent, string category, bool expected)
         {
-            Assert.Equal(expected, Utilities.LogLevelExists(hostJsonContent, category));
+            FileSystemHelpers.WriteAllTextToFile(Constants.HostJsonFileName, hostJsonContent);
+            ScriptApplicationHostOptions hostOptions = new ScriptApplicationHostOptions
+            {
+                ScriptPath = Directory.GetCurrentDirectory()
+            };
+            var configuration = Utilities.BuildHostJsonConfigutation(hostOptions); 
+            Assert.Equal(expected, Utilities.LogLevelExists(configuration, category));
         }
 
         [Theory]
@@ -43,7 +60,7 @@ namespace Azure.Functions.Cli.Tests
         [InlineData("Host.General", LogLevel.Warning, true)]
         public void DefaultLoggingFilter_Test(string inputCategory, LogLevel inputLogLevel, bool expected)
         {
-            Assert.Equal(expected, Utilities.DeafaultLoggingFilter(inputCategory, inputLogLevel, LogLevel.Information, LogLevel.Warning));
+            Assert.Equal(expected, Utilities.DefaultLoggingFilter(inputCategory, inputLogLevel, LogLevel.Information, LogLevel.Warning));
         }
     }
 }

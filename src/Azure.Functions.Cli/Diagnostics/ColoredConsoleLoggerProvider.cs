@@ -5,9 +5,9 @@ namespace Azure.Functions.Cli.Diagnostics
 {
     public class ColoredConsoleLoggerProvider : ILoggerProvider
     {
-        private readonly LoggingFilterOptions _loggingFilterOptions;
+        private readonly LoggingFilterHelper _loggingFilterOptions;
 
-        public ColoredConsoleLoggerProvider(LoggingFilterOptions loggingFilterOptions)
+        public ColoredConsoleLoggerProvider(LoggingFilterHelper loggingFilterOptions)
         {
             _loggingFilterOptions = loggingFilterOptions;
         }
